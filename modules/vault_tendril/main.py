@@ -2,10 +2,13 @@
 
 #from __future__ import print_function
 #import logging
+import getpass
 import os
 import sys
 import json
 import select
+import time
+import datetime
 import yaml
 import requests
 
@@ -110,19 +113,25 @@ class Tendril(object):
         (success, response) = self._list_path(path)
         if not success:
             return False, response
-        if '__versions' in response:
-            (success, response) = self._read_data('%s/__versions' % path)
-            for version in response['versions']:
-                if 'current' in response and version == response['current']:
-                    print "%s (current)" % (version)
-                else:
-                    print "%s" % (version)
+        (success, metadata) = self._read_data('%s/__metadata' % (path))
+        if success:
+            if '__versions' in response:
+                (success, response) = self._read_data('%s/__versions' % path)
+                for version in response['versions']:
+                    if 'current' in response and version == response['current']:
+                        print "%s by %s on %s (current)" % (
+                            version, metadata[str(version)]['user'], metadata[str(version)]['date'])
+                    else:
+                        print "%s by %s on %s" % (
+                            version, metadata[str(version)]['user'], metadata[str(version)]['date'])
+            else:
+                for k in response:
+                    if path == '':
+                        print k
+                    else:
+                        print "%s/%s" % (path, k)
         else:
-            for k in response:
-                if path == '':
-                    print k
-                else:
-                    print "%s/%s" % (path, k)
+            return False, "No metadata found"
         return True, None
 
     def write(self, path, raw_data=None):
@@ -153,7 +162,17 @@ class Tendril(object):
             except yaml.scanner.ScannerError:
                 return False, "Data is neither JSON nor YAML"
         (success, response) = self._write_data('%s/%s' % (path, next_version), data)
-        (success, response) = self._write_data('%s/%s' % (path, '__versions'), versions)
+        if success:
+            (success, response) = self._write_data('%s/%s' % (path, '__versions'), versions)
+        if success:
+            (success, metadata) = self._read_data('%s/__metadata' % path)
+            if not success:
+                metadata = {}
+            metadata[next_version] = {}
+            metadata[next_version]['date'] = datetime.datetime.fromtimestamp(
+                time.time()).strftime('%Y-%m-%d %H:%M:%S')
+            metadata[next_version]['user'] = getpass.getuser()
+            (success, response) = self._write_data('%s/%s' % (path, '__metadata'), metadata)
         return success, response
 
     def read(self, full_path):
@@ -163,12 +182,12 @@ class Tendril(object):
             version = full_path.split('/')[-1]
             path = '/'.join(full_path.split('/')[:-1])
             int(version)
-            print "Getting %s" % path
             (success, response) = self._read_data('%s/%s' % (path, version))
         except ValueError:
             (success, response) = self._read_data('%s/__versions' % full_path)
             if 'current' in response and response['current'] is not None:
-                (success, response) = self._read_data('%s/%s' % (full_path, response['current']))
+                version = response['current']
+                (success, response) = self._read_data('%s/%s' % (full_path, version))
             else:
                 if isinstance(response, dict):
                     if 'versions' in response:
