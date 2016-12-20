@@ -113,17 +113,18 @@ class Tendril(object):
         (success, response) = self._list_path(path)
         if not success:
             return False, response
-        (success, metadata) = self._read_data('%s/__metadata' % (path))
         if success:
             if '__versions' in response:
-                (success, response) = self._read_data('%s/__versions' % path)
-                for version in response['versions']:
-                    if 'current' in response and version == response['current']:
-                        print "%s by %s on %s (current)" % (
-                            version, metadata[str(version)]['user'], metadata[str(version)]['date'])
-                    else:
-                        print "%s by %s on %s" % (
-                            version, metadata[str(version)]['user'], metadata[str(version)]['date'])
+                (success, metadata) = self._read_data('%s/__metadata' % (path))
+                if success:
+                    (success, response) = self._read_data('%s/__versions' % path)
+                    for version in response['versions']:
+                        if 'current' in response and version == response['current']:
+                            print "%s by %s on %s (current)" % (
+                                version, metadata[str(version)]['user'], metadata[str(version)]['date'])
+                        else:
+                            print "%s by %s on %s" % (
+                                version, metadata[str(version)]['user'], metadata[str(version)]['date'])
             else:
                 for k in response:
                     if path == '':
