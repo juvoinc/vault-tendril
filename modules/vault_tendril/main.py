@@ -13,7 +13,9 @@ import yaml
 import requests
 
 class Tendril(object):
-    """This is my class docstring"""
+    """This class does all of the heavy lifting for tendril, including
+    the raw reads and writes to the vault database and the logic for read /
+    write / list."""
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
@@ -46,9 +48,7 @@ class Tendril(object):
         self.headers = {'X-Vault-Token': vault_token}
 
     def _write_data(self, path, data):
-#        print "Writing data of %s" % data
         try:
-            # print '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path)
             response = requests.post(
                 '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path),
                 json=data, headers=self.headers)
@@ -58,12 +58,10 @@ class Tendril(object):
             return True, None
         elif response.status_code == 400:
             return False, "Permission denied"
-#        print "Code to %s: [%s] %s" % (self.vault_addr, r.status_code, r.text)
         return False, "Unknown error"
 
     def _read_data(self, path):
         try:
-            # print '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path)
             response = requests.get(
                 '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path),
                 headers=self.headers, verify=self.vault_cert_path)
@@ -85,7 +83,6 @@ class Tendril(object):
         # pylint: disable=too-many-return-statements
 
         try:
-            # print '%s/v1/%s/%s?list=true' % (self.vault_addr, self.vault_prefix, path)
             response = requests.get(
                 '%s/v1/%s/%s?list=true' % (self.vault_addr, self.vault_prefix, path),
                 headers=self.headers, verify=self.vault_cert_path, proxies=self.proxies)
@@ -108,7 +105,10 @@ class Tendril(object):
         return False, "Unknown error"
 
     def list(self, path):
-        """DOCSTRING GOES HERE"""
+        """Given a path this will list the next available branches in the path,
+        or if the path has versions available (i.e. the path has no sub-paths
+        except for versions) then it will show the available versions along
+        with available metadata"""
         path = path.lstrip('/').rstrip('/')
         (success, response) = self._list_path(path)
         if not success:
@@ -135,7 +135,8 @@ class Tendril(object):
         return True, None
 
     def write(self, path, raw_data=None):
-        """DOCSTRING GOES HERE"""
+        """Given a path this will write the raw_data (either passed in or from
+        STDIN) to vault, computing the appropriate version."""
         path = path.lstrip('/').rstrip('/')
         last = path.split('/')[-1]
         try:
@@ -176,7 +177,11 @@ class Tendril(object):
         return success, response
 
     def read(self, full_path):
-        """DOCSTRING GOES HERE"""
+        """Given a path this will read the key/value pairs from vault and
+        present them to the user in the desired format. If the path does not
+        have a version, the current version will be pulled from vault and used.
+        If there is no current version, a list of available options will be
+        provided instead of the key/value pairs."""
         full_path = full_path.lstrip('/').rstrip('/')
         try:
             version = full_path.split('/')[-1]
@@ -209,7 +214,8 @@ class Tendril(object):
         return success, response
 
     def promote(self, full_path):
-        """DOCSTRING GOES HERE"""
+        """This will promote a given path to mark it as 'current'. The path must
+        end with a version number or an errro will be returned."""
         full_path = full_path.lstrip('/').rstrip('/')
 
         version = full_path.split('/')[-1]
@@ -227,8 +233,3 @@ class Tendril(object):
                 return False, "%s is not in %s" % (version, versions['versions'])
         else:
             return False, "Error: %s" % versions
-
-def get_url(url):
-    """This is a docstring for the get_url function"""
-    response = requests.get(url)
-    return (response.text, response.status_code)
