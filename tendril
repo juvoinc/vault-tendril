@@ -1,0 +1,17 @@
+#!/usr/bin/env python
+
+"""
+Tendril is a command line script that allows for easy creation, modification,
+and retrieval of configurations stored in a versioned and encrypted backend.
+See README.md for more details.
+"""
+
+from vault_tendril.main import Tendril
+
+def main():
+    """This is a thin wrapper around the Tendril class"""
+    print "This is main calling tendril"
+    tendril = Tendril()
+
+if __name__ == "__main__":
+    main()
