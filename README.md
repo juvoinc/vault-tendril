@@ -37,12 +37,15 @@ as Ansible variables.
 ### Installation
 
 ```
-git clone git@github.com:juvoinc/tendril.git
-cd tendril
+git clone git@github.com:juvoinc/vault-tendril.git
+cd vault-tendril
+# Skip the next two virtualenv lines if you want global installation
 virtualenv dev
 . dev/bin/activate
-pip install -r requirements.txt
+python setup.py install
 ```
+
+### Proper Installation
 
 ### Start the Vault Daemon
 
