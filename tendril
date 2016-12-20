@@ -3,16 +3,47 @@
 """
 Tendril is a command line script that allows for easy creation, modification,
 and retrieval of configurations stored in a versioned and encrypted backend.
-See README.md for more details.
+See URL for more details.
 """
 
+import sys
+import logging
+from vault_tendril.logger import configure_logging
+from vault_tendril.configure import load_configs
 from vault_tendril.main import Tendril
 
 def main():
     """This is a thin wrapper around the Tendril class"""
-    print "This is main calling tendril"
-    tendril = Tendril()
-    print "Tendril is %s" % tendril
+
+    configure_logging()
+
+    config = load_configs()
+
+    configure_logging(level=config['log_level'])
+
+    tendril = Tendril(vault_token=config['vault_token'],
+                      vault_addr=config['vault_addr'],
+                      vault_prefix=config['vault_prefix'],
+                      vault_cert_path=config['vault_cert_path'],
+                      use_socks=config['use_socks'],
+                      socks_addr=config['socks_addr'],
+                      output_format=config['output_format'],
+                      version=config['version']
+                     )
+
+    function_name = config['action'].replace('-', '_')
+
+    if hasattr(tendril, function_name):
+        (success, message) = getattr(tendril, function_name)(config['path'])
+        if message is not None:
+            print message
+        if not success:
+            sys.exit(1)
+        sys.exit(0)
+    else:
+        logging.critical("No method named %s in tendril class", function_name)
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
