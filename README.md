@@ -127,3 +127,12 @@ multiple files exist, they will all be loaded. If you specify your own
 configuration file, only the specified file will be read.
 
 There is an example configuration file in `.tendril.example`.
+
+## testing
+
+There is a Makefile to make testing easy. To run tests without needing to have
+vault running, run `make test`. To run the primitive tests with vault, run
+`make test_primitives`. This assumes you have vault in your `$PATH` and will
+start and stop vault automatically. If you are interested in contributing
+patches back to the project, make sure the code pylints properly. You can
+run pylint via `make pylint`.
