@@ -12,6 +12,7 @@ def main():
     """This is a thin wrapper around the Tendril class"""
     print "This is main calling tendril"
     tendril = Tendril()
+    print "Tendril is %s" % tendril
 
 if __name__ == "__main__":
     main()
