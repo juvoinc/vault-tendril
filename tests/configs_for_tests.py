@@ -1,0 +1,4 @@
+import requests
+
+VAULT_ADDR = 'http://localhost:8200'
+VAULT_TOKEN = '2836814c-fb96-7c69-83fc-2ede967e697a'
