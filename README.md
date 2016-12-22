@@ -29,35 +29,56 @@ as Ansible variables.
 
 ## Quick Start
 
-### Prerequisites
+### Prerequisites for running locally
 
 * Python with virtualenv
-* [Vault](https://www.vaultproject.io/downloads.html) in your `$PATH`
+* [Vault](https://www.vaultproject.io/downloads.html) in your `$PATH` ([Brew](http://brew.sh/) can install it via `brew install vault` if desired)
 
 ### Installation
 
 ```
 git clone git@github.com:juvoinc/vault-tendril.git
 cd vault-tendril
-# Skip the next two virtualenv lines if you want global installation
-virtualenv dev
-. dev/bin/activate
+# Skip the next line if you want global installation
+virtualenv env ; . env/bin/activate
 python setup.py install
 ```
-
-### Proper Installation
 
 ### Start the Vault Daemon
 
 **Note**: This is **not** how you should run Vault in production!
 This method is only for demonstration purposes so that you can play with
-tendril.
+tendril. For running in production, you should use a proper vault installation (likely with consul as a backend).
 
-`./scripts/start_daemons.sh`
+`./scripts/start_vault.sh`
 
 When you are finished, you can clean things up with
 
-`./scripts/stop_daemons.sh`
+`./scripts/stop_vault.sh`
+
+### Examples
+
+```
+$ echo '{"db_user":"webapp", "db_password":"12345"}' | tendril write prod/webapp
+$ echo '{"db_user":"webapp", "db_password":"secretpassword"}' | tendril write prod/webapp
+$ tendril list prod
+prod/webapp/
+$ tendril list prod/webapp
+1 by pete on 2016-12-22 08:42:18
+2 by pete on 2016-12-22 08:42:36
+$ tendril promote prod/webapp/2
+$ tendril list prod/webapp
+1 by pete on 2016-12-22 08:42:18
+2 by pete on 2016-12-22 08:42:36 (current)
+$ tendril read prod/webapp
+export db_password="secretpassword"
+export db_user="webapp"
+$ tendril --format=json read prod/webapp/1
+{
+  "db_password": "12345",
+  "db_user": "webapp"
+}
+```
 
 ## Commands
 
