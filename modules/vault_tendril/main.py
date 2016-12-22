@@ -171,8 +171,7 @@ class Tendril(object):
             if not success:
                 metadata = {}
             metadata[next_version] = {}
-            metadata[next_version]['date'] = datetime.datetime.fromtimestamp(
-                time.time()).strftime('%Y-%m-%d %H:%M:%S')
+            metadata[next_version]['date'] = "%s UTC" % datetime.datetime.utcnow()
             metadata[next_version]['user'] = getpass.getuser()
             (success, response) = self._write_data('%s/%s' % (path, '__metadata'), metadata)
         return success, response
