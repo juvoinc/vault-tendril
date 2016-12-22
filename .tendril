@@ -3,4 +3,4 @@ debug_level = INFO
 use_socks = no
 vault_addr = http://localhost:8200
 vault_token = 2836814c-fb96-7c69-83fc-2ede967e697a
-output_format = yaml
+output_format = export
