@@ -7,7 +7,6 @@ import os
 import sys
 import json
 import select
-import time
 import datetime
 import yaml
 import requests
@@ -121,10 +120,14 @@ class Tendril(object):
                     for version in response['versions']:
                         if 'current' in response and version == response['current']:
                             print "%s by %s on %s (current)" % (
-                                version, metadata[str(version)]['user'], metadata[str(version)]['date'])
+                                version,
+                                metadata[str(version)]['user'],
+                                metadata[str(version)]['date'])
                         else:
                             print "%s by %s on %s" % (
-                                version, metadata[str(version)]['user'], metadata[str(version)]['date'])
+                                version,
+                                metadata[str(version)]['user'],
+                                metadata[str(version)]['date'])
             else:
                 for k in response:
                     if path == '':
