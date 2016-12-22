@@ -150,7 +150,7 @@ By default, tendril reads configuration files from `/etc/tendril.conf`,
 multiple files exist, they will all be loaded. If you specify your own
 configuration file, only the specified file will be read.
 
-There is an example configuration file in `.tendril.example`.
+There is an example configuration file in `.tendril`.
 
 ## testing
 
