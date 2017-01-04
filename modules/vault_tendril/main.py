@@ -8,6 +8,7 @@ import sys
 import json
 import select
 import datetime
+import hashlib
 import yaml
 import requests
 
@@ -182,18 +183,7 @@ class Tendril(object):
             next_version = int(metadata['versions'][-1]) + 1
         else:
             next_version = 1
-        history = {"user":getpass.getuser(),
-                   "date":"%s UTC" % datetime.datetime.utcnow(),
-                   "action":"created",
-                   "version":next_version
-                  }
-        if success:
-            metadata['versions'].append(next_version)
-            metadata['history'].append(history)
-        else:
-            metadata = {"current":None, "versions":[next_version],
-                        "history":[history]
-                       }
+
         if raw_data is None:
             if select.select([sys.stdin,], [], [], 0.0)[0]:
                 raw_data = sys.stdin.read()
@@ -206,6 +196,30 @@ class Tendril(object):
                 data = yaml.load(raw_data)
             except yaml.scanner.ScannerError:
                 return False, "Data is neither JSON nor YAML"
+        hash_object = hashlib.sha256()
+        hash_object.update(json.dumps(data))
+        digest = hash_object.hexdigest()
+        history = {"user":getpass.getuser(),
+                   "date":"%s UTC" % datetime.datetime.utcnow(),
+                   "action":"created",
+                   "digest":digest,
+                   "version":next_version
+                  }
+        if success and digest in metadata['digests']:
+            conflicting_version = 0
+            for index, t_digest in enumerate(metadata['digests']):
+                if digest == t_digest:
+                    conflicting_version = metadata['versions'][index]
+            return False, "This configuration is identical to version %s." % conflicting_version
+        if success:
+            metadata['versions'].append(next_version)
+            metadata['history'].append(history)
+            metadata['digests'].append(digest)
+        else:
+            metadata = {"current":None, "versions":[next_version],
+                        "history":[history], "digests":[digest]
+                       }
+
         (success, response) = self._write_data('%s/%s' % (path, next_version), data)
         if success:
             (success, response) = self._write_data('%s/%s' % (path, '__metadata'), metadata)
