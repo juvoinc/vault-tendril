@@ -16,6 +16,7 @@ CONFIG_DEFAULTS = {
 
 ACTIONS = [
     'list',
+    'history',
     'read',
     'write',
     'promote'

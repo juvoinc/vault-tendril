@@ -140,6 +140,34 @@ class Tendril(object):
                     print "%s/%s" % (path, k)
         return True, None
 
+    def history(self, path):
+        """Given a path this will list the history of the path, including user,
+        date, and action (created, promoted).
+        """
+        path = path.lstrip('/').rstrip('/')
+        (success, response) = self._list_path(path)
+        if not success:
+            return False, "No metadata found"
+        if '__metadata' in response:
+            (success, metadata) = self._read_data('%s/__metadata' % (path))
+            if success:
+                if self.output_format == 'json':
+                    print json.dumps(metadata['history'], indent=2)
+                else:
+                    max_width = 0
+                    for item in metadata['history']:
+                        if len(str(item['version'])) > max_width:
+                            max_width = len(str(item['version']))
+                    for item in metadata['history']:
+                        print "{} version {: >{}} {:<8} by {}".format(item['date'],
+                                                                      int(item['version']),
+                                                                      max_width,
+                                                                      item['action'],
+                                                                      item['user']
+                                                                     )
+        return True, None
+
+
     def write(self, path, raw_data=None):
         """Given a path this will write the raw_data (either passed in or from
         STDIN) to vault, computing the appropriate version."""
