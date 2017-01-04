@@ -60,16 +60,26 @@ When you are finished, you can clean things up with
 
 ```
 $ echo '{"db_user":"webapp", "db_password":"12345"}' | tendril write prod/webapp
+2017-01-04 23:49:41.422845 UTC version 1 created by pete
 $ echo '{"db_user":"webapp", "db_password":"secretpassword"}' | tendril write prod/webapp
+2017-01-04 23:50:10.682047 UTC version 2 created by pete
+
 $ tendril list prod
 prod/webapp/
 $ tendril list prod/webapp
-1 by pete on 2016-12-22 08:42:18
-2 by pete on 2016-12-22 08:42:36
+1 by pete on 2017-01-04 23:49:41.422845 UTC
+2 by pete on 2017-01-04 23:50:10.682047 UTC
+
 $ tendril promote prod/webapp/2
 $ tendril list prod/webapp
-1 by pete on 2016-12-22 08:42:18
-2 by pete on 2016-12-22 08:42:36 (current)
+1 by pete on 2017-01-04 23:49:41.422845 UTC
+2 by pete on 2017-01-04 23:50:10.682047 UTC (current)
+
+$ tendril history prod/webapp
+2017-01-04 23:49:41.422845 UTC version 1 created  by pete
+2017-01-04 23:50:10.682047 UTC version 2 created  by pete
+2017-01-04 23:50:45.193454 UTC version 2 promoted by pete
+
 $ tendril read prod/webapp
 export db_password="secretpassword"
 export db_user="webapp"
@@ -88,7 +98,11 @@ Valid ways to write a JSON or YAML file to vault via tendril:
 
 `echo '{"key":"value"}' | tendril write PATH`
 
-`tendril write --file FILE PATH`
+This will pull you into your `$EDITOR` for any further editing.
+
+This means that you can do this to modify an existing configuration:
+
+`tendril read PATH | tendril write PATH`
 
 ### list
 
@@ -106,9 +120,16 @@ $ tendril list foo
 foo/bar/
 foo/baz/
 $ tendril list foo/baz
-1
-2
+1 by pete on 2017-01-04 23:49:41.422845 UTC
+2 by pete on 2017-01-04 23:50:10.682047 UTC
 ```
+
+### history
+
+This is similar to list but shows the full timestamped history of what happened
+and when. If you specify `--format=json` then you will also see the sha256
+digest value for each configuration.
+
 ### promote
 
 When a version of a config is promoted, it is then returned when a path without
