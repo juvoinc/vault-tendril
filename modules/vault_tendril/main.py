@@ -9,8 +9,61 @@ import json
 import select
 import datetime
 import hashlib
+import tempfile
+from subprocess import call
 import yaml
 import requests
+
+def valid_path(path):
+    """Makes a best guess at detecting whether a path is okay to try to write to"""
+    last = path.split('/')[-1]
+    try:
+        int(last)
+        return False
+    except ValueError:
+        return True
+
+def get_raw_data(raw_data):
+    """
+    Figure out the best way to get the data from the user. Use STDIN if it's
+    available, otherwise open up an editor.
+    """
+    if raw_data is None:
+        if select.select([sys.stdin,], [], [], 0.0)[0]:
+            raw_data = sys.stdin.read()
+        else:
+            editor = os.environ.get('EDITOR', 'vi')
+
+            with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False) as temp_file:
+                temp_file.write(json.dumps({"foo":"bar"}, indent=2))
+                temp_file.flush()
+
+            call([editor, temp_file.name])
+
+            with open(temp_file.name, 'r') as temp_file:
+                raw_data = temp_file.read()
+    try:
+        data = json.loads(raw_data)
+    except ValueError:
+        try:
+            data = yaml.load(raw_data)
+        except yaml.scanner.ScannerError:
+            return False, "Data is neither JSON nor YAML"
+    return True, data
+
+def create_history(data, next_version):
+    """Generate the history object"""
+    hash_object = hashlib.sha256()
+    hash_object.update(json.dumps(data))
+    digest = hash_object.hexdigest()
+    history = {"user":getpass.getuser(),
+               "date":"%s UTC" % datetime.datetime.utcnow(),
+               "action":"created",
+               "digest":digest,
+               "version":next_version
+              }
+    return history, digest
+
 
 class Tendril(object):
     """This class does all of the heavy lifting for tendril, including
@@ -168,50 +221,37 @@ class Tendril(object):
                                                                      )
         return True, None
 
+    def _get_metadata(self, path):
+        (success, metadata) = self._read_data('%s/__metadata' % path)
+        if success:
+            next_version = int(metadata['versions'][-1]) + 1
+        else:
+            next_version = 1
+            metadata = None
+        return metadata, next_version
+
+
 
     def write(self, path, raw_data=None):
         """Given a path this will write the raw_data (either passed in or from
         STDIN) to vault, computing the appropriate version."""
         path = path.lstrip('/').rstrip('/')
-        last = path.split('/')[-1]
-        try:
-            int(last)
-            return False, "Cannot save to a specific version"
-        except ValueError:
-            (success, metadata) = self._read_data('%s/__metadata' % path)
-        if success:
-            next_version = int(metadata['versions'][-1]) + 1
-        else:
-            next_version = 1
 
-        if raw_data is None:
-            if select.select([sys.stdin,], [], [], 0.0)[0]:
-                raw_data = sys.stdin.read()
-            else:
-                return False, "No data supplied to STDIN"
-        try:
-            data = json.loads(raw_data)
-        except ValueError:
-            try:
-                data = yaml.load(raw_data)
-            except yaml.scanner.ScannerError:
-                return False, "Data is neither JSON nor YAML"
-        hash_object = hashlib.sha256()
-        hash_object.update(json.dumps(data))
-        digest = hash_object.hexdigest()
-        history = {"user":getpass.getuser(),
-                   "date":"%s UTC" % datetime.datetime.utcnow(),
-                   "action":"created",
-                   "digest":digest,
-                   "version":next_version
-                  }
-        if success and digest in metadata['digests']:
+        if not valid_path(path):
+            return False, "Cannot save to a specific version"
+
+        (metadata, next_version) = self._get_metadata(path)
+        success, data = get_raw_data(raw_data)
+        if not success:
+            return False, data
+        history, digest = create_history(data, next_version)
+        if metadata is not None and digest in metadata['digests']:
             conflicting_version = 0
             for index, t_digest in enumerate(metadata['digests']):
                 if digest == t_digest:
                     conflicting_version = metadata['versions'][index]
             return False, "This configuration is identical to version %s." % conflicting_version
-        if success:
+        if metadata is not None:
             metadata['versions'].append(next_version)
             metadata['history'].append(history)
             metadata['digests'].append(digest)
