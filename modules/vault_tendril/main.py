@@ -111,31 +111,33 @@ class Tendril(object):
         path = path.lstrip('/').rstrip('/')
         (success, response) = self._list_path(path)
         if not success:
-            return False, response
-        if success:
-            if '__versions' in response:
-                (success, metadata) = self._read_data('%s/__metadata' % (path))
-                if success:
-                    (success, response) = self._read_data('%s/__versions' % path)
-                    for version in response['versions']:
-                        if 'current' in response and version == response['current']:
-                            print "%s by %s on %s (current)" % (
-                                version,
-                                metadata[str(version)]['user'],
-                                metadata[str(version)]['date'])
-                        else:
-                            print "%s by %s on %s" % (
-                                version,
-                                metadata[str(version)]['user'],
-                                metadata[str(version)]['date'])
-            else:
-                for k in response:
-                    if path == '':
-                        print k
-                    else:
-                        print "%s/%s" % (path, k)
-        else:
             return False, "No metadata found"
+        if '__metadata' in response:
+            (success, metadata) = self._read_data('%s/__metadata' % (path))
+            if success:
+                history = {}
+                for item in metadata['history']:
+                    if item['action'] == 'created':
+                        history[item['version']] = {}
+                        history[item['version']]['date'] = item['date']
+                        history[item['version']]['user'] = item['user']
+                for version in metadata['versions']:
+                    if 'current' in metadata and version == metadata['current']:
+                        print "%s by %s on %s (current)" % (
+                            version,
+                            history[version]['user'],
+                            history[version]['date'])
+                    else:
+                        print "%s by %s on %s" % (
+                            version,
+                            history[version]['user'],
+                            history[version]['date'])
+        else:
+            for k in response:
+                if path == '':
+                    print k
+                else:
+                    print "%s/%s" % (path, k)
         return True, None
 
     def write(self, path, raw_data=None):
@@ -147,13 +149,23 @@ class Tendril(object):
             int(last)
             return False, "Cannot save to a specific version"
         except ValueError:
-            (success, versions) = self._read_data('%s/__versions' % path)
+            (success, metadata) = self._read_data('%s/__metadata' % path)
         if success:
-            next_version = int(versions['versions'][-1]) + 1
-            versions['versions'].append(next_version)
+            next_version = int(metadata['versions'][-1]) + 1
         else:
             next_version = 1
-            versions = {"current":None, "versions":[next_version]}
+        history = {"user":getpass.getuser(),
+                   "date":"%s UTC" % datetime.datetime.utcnow(),
+                   "action":"created",
+                   "version":next_version
+                  }
+        if success:
+            metadata['versions'].append(next_version)
+            metadata['history'].append(history)
+        else:
+            metadata = {"current":None, "versions":[next_version],
+                        "history":[history]
+                       }
         if raw_data is None:
             if select.select([sys.stdin,], [], [], 0.0)[0]:
                 raw_data = sys.stdin.read()
@@ -168,14 +180,6 @@ class Tendril(object):
                 return False, "Data is neither JSON nor YAML"
         (success, response) = self._write_data('%s/%s' % (path, next_version), data)
         if success:
-            (success, response) = self._write_data('%s/%s' % (path, '__versions'), versions)
-        if success:
-            (success, metadata) = self._read_data('%s/__metadata' % path)
-            if not success:
-                metadata = {}
-            metadata[next_version] = {}
-            metadata[next_version]['date'] = "%s UTC" % datetime.datetime.utcnow()
-            metadata[next_version]['user'] = getpass.getuser()
             (success, response) = self._write_data('%s/%s' % (path, '__metadata'), metadata)
         return success, response
 
@@ -192,7 +196,7 @@ class Tendril(object):
             int(version)
             (success, response) = self._read_data('%s/%s' % (path, version))
         except ValueError:
-            (success, response) = self._read_data('%s/__versions' % full_path)
+            (success, response) = self._read_data('%s/__metadata' % full_path)
             if 'current' in response and response['current'] is not None:
                 version = response['current']
                 (success, response) = self._read_data('%s/%s' % (full_path, version))
@@ -223,16 +227,22 @@ class Tendril(object):
 
         version = full_path.split('/')[-1]
         path = '/'.join(full_path.split('/')[:-1])
-        (success, versions) = self._read_data('%s/__versions' % path)
+        (success, metadata) = self._read_data('%s/__metadata' % path)
         if success:
-            if int(version) in versions['versions']:
-                if int(version) != versions['current']:
-                    versions['current'] = int(version)
-                    (success, response) = self._write_data('%s/__versions' % path, versions)
+            if int(version) in metadata['versions']:
+                if int(version) != metadata['current']:
+                    metadata['current'] = int(version)
+                    history = {"user":getpass.getuser(),
+                               "date":"%s UTC" % datetime.datetime.utcnow(),
+                               "action":"promoted",
+                               "version":version
+                              }
+                    metadata['history'].append(history)
+                    (success, response) = self._write_data('%s/__metadata' % path, metadata)
                     return success, response
                 else:
                     return False, "%s is already current" % version
             else:
-                return False, "%s is not in %s" % (version, versions['versions'])
+                return False, "%s is not in %s" % (version, metadata['versions'])
         else:
-            return False, "Error: %s" % versions
+            return False, "Error: %s" % metadata
