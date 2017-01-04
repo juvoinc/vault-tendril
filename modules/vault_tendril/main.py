@@ -268,6 +268,13 @@ class Tendril(object):
         (success, response) = self._write_data('%s/%s' % (path, next_version), data)
         if success:
             (success, response) = self._write_data('%s/%s' % (path, '__metadata'), metadata)
+        if success:
+            print "{} version {} {} by {}".format(history['date'],
+                                                  int(history['version']),
+                                                  history['action'],
+                                                  history['user']
+                                                 )
+
         return success, response
 
     def read(self, full_path):
