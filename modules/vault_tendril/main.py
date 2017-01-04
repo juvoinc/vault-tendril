@@ -11,9 +11,9 @@ import datetime
 import hashlib
 import tempfile
 from subprocess import call
+from time import sleep
 import yaml
 import requests
-
 def valid_path(path):
     """Makes a best guess at detecting whether a path is okay to try to write to"""
     last = path.split('/')[-1]
@@ -23,25 +23,26 @@ def valid_path(path):
     except ValueError:
         return True
 
-def get_raw_data(raw_data):
+def get_raw_data():
     """
     Figure out the best way to get the data from the user. Use STDIN if it's
     available, otherwise open up an editor.
     """
-    if raw_data is None:
-        if select.select([sys.stdin,], [], [], 0.0)[0]:
-            raw_data = sys.stdin.read()
-        else:
-            editor = os.environ.get('EDITOR', 'vi')
+    sleep(0.05) # Gah this is annoying, figure out how to do this right
+    if select.select([sys.stdin,], [], [], 0.0)[0]:
+        raw_data = sys.stdin.read()
+    else:
+        raw_data = None
+    editor = os.environ.get('EDITOR', 'vi')
 
-            with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False) as temp_file:
-                temp_file.write(json.dumps({"foo":"bar"}, indent=2))
-                temp_file.flush()
+    with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False) as temp_file:
+        temp_file.write(raw_data or "")
+        temp_file.flush()
 
-            call([editor, temp_file.name])
+    call([editor, temp_file.name], stdin=open('/dev/tty', 'r'))
 
-            with open(temp_file.name, 'r') as temp_file:
-                raw_data = temp_file.read()
+    with open(temp_file.name, 'r') as temp_file:
+        raw_data = temp_file.read()
     try:
         data = json.loads(raw_data)
     except ValueError:
@@ -49,6 +50,10 @@ def get_raw_data(raw_data):
             data = yaml.load(raw_data)
         except yaml.scanner.ScannerError:
             return False, "Data is neither JSON nor YAML"
+        except yaml.parser.ParserError:
+            return False, "Data is neither JSON nor YAML"
+    if data is None:
+        return False, "No data provided"
     return True, data
 
 def create_history(data, next_version):
@@ -232,7 +237,7 @@ class Tendril(object):
 
 
 
-    def write(self, path, raw_data=None):
+    def write(self, path):
         """Given a path this will write the raw_data (either passed in or from
         STDIN) to vault, computing the appropriate version."""
         path = path.lstrip('/').rstrip('/')
@@ -241,7 +246,7 @@ class Tendril(object):
             return False, "Cannot save to a specific version"
 
         (metadata, next_version) = self._get_metadata(path)
-        success, data = get_raw_data(raw_data)
+        success, data = get_raw_data()
         if not success:
             return False, data
         history, digest = create_history(data, next_version)
