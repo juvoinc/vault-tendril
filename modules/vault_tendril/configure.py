@@ -21,6 +21,8 @@ def load_arguments():
     parser.add_argument('path', nargs='?', default='')
     parser.add_argument('--account', '-a', default='main')
     parser.add_argument('--format', choices=['export', 'json', 'yaml'], dest='output_format')
+    parser.add_argument('--force', action='store_true', default=False)
+    parser.add_argument('--no-edit', action='store_false', default=True, dest='use_editor')
     return parser.parse_args()
 
 

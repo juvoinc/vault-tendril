@@ -28,7 +28,8 @@ def main():
                       use_socks=config['use_socks'],
                       socks_addr=config['socks_addr'],
                       output_format=config['output_format'],
-                      version=config['version']
+                      force=config['force'],
+                      use_editor=config['use_editor']
                      )
 
     function_name = config['action'].replace('-', '_')

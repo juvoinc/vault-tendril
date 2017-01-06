@@ -23,7 +23,7 @@ def valid_path(path):
     except ValueError:
         return True
 
-def get_raw_data():
+def get_raw_data(use_editor=True):
     """
     Figure out the best way to get the data from the user. Use STDIN if it's
     available, otherwise open up an editor.
@@ -38,8 +38,8 @@ def get_raw_data():
     with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False) as temp_file:
         temp_file.write(raw_data or "")
         temp_file.flush()
-
-    call([editor, temp_file.name], stdin=open('/dev/tty', 'r'))
+    if use_editor:
+        call([editor, temp_file.name], stdin=open('/dev/tty', 'r'))
 
     with open(temp_file.name, 'r') as temp_file:
         raw_data = temp_file.read()
@@ -86,7 +86,8 @@ class Tendril(object):
                  use_socks=False,
                  socks_addr=None,
                  output_format=None,
-                 version=None
+                 force=False,
+                 use_editor=True
                 ):
         self.vault_addr = vault_addr
         self.vault_prefix = vault_prefix
@@ -102,9 +103,13 @@ class Tendril(object):
             self.proxies = None
         self.use_socks = use_socks
         self.output_format = output_format
-        self.version = version
         self.headers = {'X-Vault-Token': vault_token}
-
+        self.force = False
+        if force == 'True':
+            self.force = True
+        self.use_editor = True
+        if use_editor == 'False':
+            self.use_editor = False
     def _write_data(self, path, data):
         try:
             response = requests.post(
@@ -226,12 +231,14 @@ class Tendril(object):
                                                                      )
         return True, None
 
-    def _get_metadata(self, path):
+    def _get_metadata(self, path, next_version):
         (success, metadata) = self._read_data('%s/__metadata' % path)
         if success:
-            next_version = int(metadata['versions'][-1]) + 1
+            if next_version is None:
+                next_version = int(metadata['versions'][-1]) + 1
         else:
-            next_version = 1
+            if next_version is None:
+                next_version = 1
             metadata = None
         return metadata, next_version
 
@@ -241,30 +248,42 @@ class Tendril(object):
         """Given a path this will write the raw_data (either passed in or from
         STDIN) to vault, computing the appropriate version."""
         path = path.lstrip('/').rstrip('/')
-
+        next_version = None
         if not valid_path(path):
-            return False, "Cannot save to a specific version"
+            if self.force:
+                next_version = int(path.split('/')[-1])
+                path = '/'.join(path.split('/')[0:-1])
+                if not valid_path(path):
+                    return False, "This is not a valid path"
+            else:
+                return False, "Cannot save to a specific version, use --force to override"
 
-        (metadata, next_version) = self._get_metadata(path)
-        success, data = get_raw_data()
+        (metadata, next_version) = self._get_metadata(path, next_version)
+        success, data = get_raw_data(self.use_editor)
         if not success:
             return False, data
         history, digest = create_history(data, next_version)
-        if metadata is not None and digest in metadata['digests']:
+        if not self.force and metadata is not None and digest in metadata['digests']:
             conflicting_version = 0
             for index, t_digest in enumerate(metadata['digests']):
                 if digest == t_digest:
                     conflicting_version = metadata['versions'][index]
             return False, "This configuration is identical to version %s." % conflicting_version
         if metadata is not None:
-            metadata['versions'].append(next_version)
+            try:
+                index = metadata['versions'].index(next_version)
+            except ValueError:
+                index = None
             metadata['history'].append(history)
-            metadata['digests'].append(digest)
+            if index is None:
+                metadata['versions'].append(next_version)
+                metadata['digests'].append(digest)
+            else:
+                metadata['digests'][index] = digest
         else:
             metadata = {"current":None, "versions":[next_version],
                         "history":[history], "digests":[digest]
                        }
-
         (success, response) = self._write_data('%s/%s' % (path, next_version), data)
         if success:
             (success, response) = self._write_data('%s/%s' % (path, '__metadata'), metadata)
@@ -333,6 +352,13 @@ class Tendril(object):
                               }
                     metadata['history'].append(history)
                     (success, response) = self._write_data('%s/__metadata' % path, metadata)
+                    if success:
+                        print "{} version {} {} by {}".format(history['date'],
+                                                              int(history['version']),
+                                                              history['action'],
+                                                              history['user']
+                                                             )
+
                     return success, response
                 else:
                     return False, "%s is already current" % version
