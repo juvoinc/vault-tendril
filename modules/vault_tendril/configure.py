@@ -1,6 +1,7 @@
 """These are helper functions for parsing command line arguments and
 config files"""
 
+import os
 import sys
 import argparse
 import configparser
@@ -19,7 +20,7 @@ def load_arguments():
     parser.add_argument('--conf', nargs='+', default=DEFAULT_CONF_FILES)
     parser.add_argument('action', choices=ACTIONS)
     parser.add_argument('path', nargs='?', default='')
-    parser.add_argument('--account', '-a', default='main')
+    parser.add_argument('--account', '-a', default=os.getenv('TENDRIL_ACCOUNT', 'main'))
     parser.add_argument('--format', choices=['export', 'json', 'yaml'], dest='output_format')
     parser.add_argument('--force', action='store_true', default=False)
     parser.add_argument('--no-edit', action='store_false', default=True, dest='use_editor')

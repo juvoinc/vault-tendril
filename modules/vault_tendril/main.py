@@ -321,11 +321,11 @@ class Tendril(object):
             else:
                 if isinstance(response, dict):
                     if 'versions' in response:
-                        return_text += "Available versions are:"
+                        return_text += "Available versions are: "
                         for version in response['versions']:
-                            return_text += version
+                            return_text += "%s " % str(version)
                         success = False
-                        response = None
+                        response = return_text
         if success:
             if self.output_format == 'export':
                 for key in sorted(response):
