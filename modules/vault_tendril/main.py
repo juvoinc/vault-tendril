@@ -189,21 +189,21 @@ class Tendril(object):
                 for version in metadata['versions']:
                     if 'current' in metadata and version == metadata['current']:
 
-                        return_text += "%s by %s on %s (current)" % (
+                        return_text += "%s by %s on %s (current)\n" % (
                             version,
                             history[version]['user'],
                             history[version]['date'])
                     else:
-                        return_text += "%s by %s on %s" % (
+                        return_text += "%s by %s on %s\n" % (
                             version,
                             history[version]['user'],
                             history[version]['date'])
         else:
             for k in response:
                 if path == '':
-                    return_text += k
+                    return_text += "%s\n" % k
                 else:
-                    return_text += "%s/%s" % (path, k)
+                    return_text += "%s/%s\n" % (path, k)
         return True, return_text
 
     def history(self, path):
