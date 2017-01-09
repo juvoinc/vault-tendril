@@ -13,4 +13,6 @@ def test_list_successful():
         t = Tendril(vault_addr=VAULT_ADDR, vault_token=VAULT_TOKEN)
         (success, message) = t.list(path)
         assert success
-        assert message == None
+	assert "1 by test on 2000-01-0100:00:00" in message
+	assert "2 by test on 2000-01-0100:02:00" in message
+	assert "3 by test on 2000-01-0100:04:00 (current)" in message
