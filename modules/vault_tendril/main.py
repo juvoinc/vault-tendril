@@ -214,9 +214,9 @@ class Tendril(object):
         (success, response) = self._list_path(path)
         if not success:
             return False, "No metadata found"
+        return_text = ''
         if '__metadata' in response:
             (success, metadata) = self._read_data('%s/__metadata' % (path))
-            return_text = ''
             if success:
                 if self.output_format == 'json':
                     return_text = json.dumps(metadata['history'], indent=2)
@@ -226,13 +226,19 @@ class Tendril(object):
                         if len(str(item['version'])) > max_width:
                             max_width = len(str(item['version']))
                     for item in metadata['history']:
-                        return_text += "{} version {: >{}} {:<8} by {}".format(
+                        return_text += "{} version {: >{}} {:<8} by {}\n".format(
                             item['date'],
                             int(item['version']),
                             max_width,
                             item['action'],
                             item['user']
                         )
+        else:
+            for k in response:
+                if path == '':
+                    return_text += "%s\n" % k
+                else:
+                    return_text += "%s/%s\n" % (path, k)
         return True, return_text
 
     def _get_metadata(self, path, next_version):
