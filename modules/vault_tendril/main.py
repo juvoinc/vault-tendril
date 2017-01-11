@@ -85,7 +85,7 @@ class Tendril(object):
                  vault_cert_path=None,
                  use_socks=False,
                  socks_addr=None,
-                 output_format=None,
+                 output_format='json',
                  force=False,
                  use_editor=True
                 ):
@@ -241,20 +241,18 @@ class Tendril(object):
                     return_text += "%s/%s\n" % (path, k)
         return True, return_text
 
-    def _get_metadata(self, path, next_version):
+    def _get_metadata(self, path):
         (success, metadata) = self._read_data('%s/__metadata' % path)
         if success:
-            if next_version is None:
-                next_version = int(metadata['versions'][-1]) + 1
+            next_version = int(metadata['versions'][-1]) + 1
         else:
-            if next_version is None:
-                next_version = 1
+            next_version = 1
             metadata = None
         return metadata, next_version
 
 
 
-    def write(self, path):
+    def write(self, path, data=None):
         """Given a path this will write the raw_data (either passed in or from
         STDIN) to vault, computing the appropriate version."""
         path = path.lstrip('/').rstrip('/')
@@ -268,10 +266,13 @@ class Tendril(object):
             else:
                 return False, "Cannot save to a specific version, use --force to override"
 
-        (metadata, next_version) = self._get_metadata(path, next_version)
-        success, data = get_raw_data(self.use_editor)
-        if not success:
-            return False, data
+        (metadata, possible_next_version) = self._get_metadata(path)
+        if next_version is None:
+            next_version = possible_next_version
+        if data is None:
+            success, data = get_raw_data(self.use_editor)
+            if not success:
+                return False, data
         history, digest = create_history(data, next_version)
         if not self.force and metadata is not None and digest in metadata['digests']:
             conflicting_version = 0
@@ -335,12 +336,11 @@ class Tendril(object):
         if success:
             if self.output_format == 'export':
                 for key in sorted(response):
-                    return_text += "export %s=\"%s\"" % (key, response[key])
+                    return_text += "export %s=\"%s\"\n" % (key, response[key])
             elif self.output_format == 'json':
-                return_text += json.dumps(response, indent=2)
+                return_text = json.dumps(response, indent=2)
             elif self.output_format == 'yaml':
-                return_text += '---'
-                return_text += yaml.safe_dump(response, default_flow_style=False),
+                return_text = "%s\n%s" % ('---', yaml.safe_dump(response, default_flow_style=False))
             return True, return_text
         return success, response
 
