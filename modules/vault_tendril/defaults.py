@@ -1,13 +1,19 @@
 """Reasonable defaults are configured in this file"""
 
+import os
+
 DEFAULT_CONF_FILES = ['/etc/tendril.conf', '~/.tendril', './.tendril']
-DEFAULT_CONF_SECTION_NAME = 'main'
+
+DEFAULT_CONF_SECTION_NAME = 'default'
 
 CONFIG_DEFAULTS = {
     'force' : False,
     'log_level' : 'critical',
     'use_editor' : True,
     'use_socks' : False,
+    'consul_addr' : 'http://localhost:8500',
+    'consul_prefix' : 'lock',
+    'consul_cert_path' : '',
     'vault_addr' : 'http://localhost:8200',
     'vault_prefix' : 'config',
     'vault_cert_path' : '',
@@ -21,5 +27,10 @@ ACTIONS = [
     'history',
     'read',
     'write',
-    'promote'
+    'promote',
+    'lock',
+    'unlock'
     ]
+
+for index, file in enumerate(DEFAULT_CONF_FILES):
+    DEFAULT_CONF_FILES[index] = os.path.expanduser(file)

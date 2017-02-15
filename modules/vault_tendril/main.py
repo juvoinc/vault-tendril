@@ -1,7 +1,7 @@
 """The tendril class"""
 
 #from __future__ import print_function
-#import logging
+import logging
 import getpass
 import os
 import sys
@@ -79,6 +79,10 @@ class Tendril(object):
     # pylint: disable=too-many-arguments
 
     def __init__(self,
+                 consul_token=None,
+                 consul_addr='http://localhost:8500',
+                 consul_prefix='lock',
+                 consul_cert_path=None,
                  vault_token=None,
                  vault_addr='http://localhost:8200',
                  vault_prefix='config',
@@ -89,9 +93,13 @@ class Tendril(object):
                  force=False,
                  use_editor=True
                 ):
+        self.consul_addr = consul_addr
+        self.consul_prefix = consul_prefix
+        self.consul_cert_path = consul_cert_path
+        if consul_cert_path is not None:
+            self.consul_cert_path = os.path.expanduser(consul_cert_path)
         self.vault_addr = vault_addr
         self.vault_prefix = vault_prefix
-        self.vault_cert_path = vault_cert_path
         if vault_cert_path is not None:
             self.vault_cert_path = os.path.expanduser(vault_cert_path)
         if use_socks == "yes":
@@ -103,7 +111,9 @@ class Tendril(object):
             self.proxies = None
         self.use_socks = use_socks
         self.output_format = output_format
-        self.headers = {'X-Vault-Token': vault_token}
+        self.consul_headers = {'X-Consul-Token': consul_token}
+
+        self.vault_headers = {'X-Vault-Token': vault_token}
         self.force = False
         if force == 'True':
             self.force = True
@@ -114,7 +124,7 @@ class Tendril(object):
         try:
             response = requests.post(
                 '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path),
-                json=data, headers=self.headers)
+                json=data, headers=self.vault_headers, verify=self.vault_cert_path, proxies=self.proxies)
         except requests.exceptions.ConnectionError, error:
             return False, str(error)
         if response.status_code == 204:
@@ -125,9 +135,10 @@ class Tendril(object):
 
     def _read_data(self, path):
         try:
+            url = '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path)
             response = requests.get(
                 '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path),
-                headers=self.headers, verify=self.vault_cert_path)
+                headers=self.vault_headers, verify=self.vault_cert_path, proxies=self.proxies)
         except requests.exceptions.ConnectionError, error:
             return False, str(error)
         if response.status_code == 200:
@@ -138,6 +149,7 @@ class Tendril(object):
         elif response.status_code == 404:
             return False, "No data found at %s" % path
         elif response.status_code == 400:
+            print response.text
             return False, "Permission denied"
         return False, "Unknown error"
 
@@ -148,7 +160,7 @@ class Tendril(object):
         try:
             response = requests.get(
                 '%s/v1/%s/%s?list=true' % (self.vault_addr, self.vault_prefix, path),
-                headers=self.headers, verify=self.vault_cert_path, proxies=self.proxies)
+                headers=self.vault_headers, verify=self.vault_cert_path, proxies=self.proxies)
         except requests.exceptions.ConnectionError, error:
             return False, str(error)
         if response.status_code == 200:
@@ -166,6 +178,89 @@ class Tendril(object):
         elif response.status_code == 400:
             return False, "Permission denied"
         return False, "Unknown error"
+
+    def _acquire_lock(self, path):
+        if not os.path.isfile(self.lock_file):
+            # Create a session
+            data = {"Name":"consul-lock", "TTL":"3600s"}
+            response = requests.put('%s/v1/session/create' % self.consul_addr,
+                                    headers=self.consul_headers,
+                                    verify=self.consul_cert_path,
+                                    proxies=self.proxies, data=json.dumps(data))
+            data = response.json()
+            if 'ID' in data:
+                session = data['ID']
+                save = {
+                    "user":getpass.getuser(),
+                    "action":"created",
+                    "date":"%s UTC" % datetime.datetime.utcnow(),
+                    "id":session
+                }
+                response = requests.put('%s/v1/kv/%s/%s?acquire=%s' %
+                                        (self.consul_addr, self.consul_prefix, path, session),
+                                        headers=self.consul_headers,
+                                        verify=self.consul_cert_path,
+                                        proxies=self.proxies, data=json.dumps(save))
+                if "true" in response.text:
+                    with open(self.lock_file, 'w') as f:
+                        f.write(session)
+                    return True, "Locked with lockfile: %s" % self.lock_file
+                else:
+                    print "Destroying session of %s" % session
+                    response = requests.put('%s/v1/session/destroy/%s' %
+                                            (self.consul_addr, session),
+                                            headers=self.consul_headers,
+                                            verify=self.consul_cert_path,
+                                            proxies=self.proxies)
+                    return False, "Unable to acquire lock"
+            else:
+                return False, "Unable to create a session"
+        else:
+            with open(self.lock_file, 'r') as f:
+                session = f.read()
+            response = requests.put('%s/v1/session/renew/%s' % (self.consul_addr, session),
+                                    headers=self.consul_headers,
+                                    verify=self.consul_cert_path,
+                                    proxies=self.proxies)
+            if response.status_code == 200:
+                data = response.json()
+                if 'ID' in data[0] and data[0]['ID'] == session:
+                    return True, "Renewed lock with lockfile: %s" % self.lock_file
+                else:
+                    return False, "Unable to renew %s" % self.lock_file
+            else:
+                return False, "Unable to renew %s" % self.lock_file
+
+    def _release_lock(self, path):
+        if not os.path.isfile(self.lock_file):
+            return (False, "Lock file %s doesn't exist." % self.lock_file)
+        with open(self.lock_file, 'r') as f:
+            session = f.read()
+        save = {
+            "user":getpass.getuser(),
+            "action":"released",
+            "date":"%s UTC" % datetime.datetime.utcnow(),
+            "id":session
+        }
+        response = requests.put('%s/v1/kv/%s/%s?release=%s' %
+                                (self.consul_addr, self.consul_prefix, path, session),
+                                headers=self.consul_headers,
+                                verify=self.consul_cert_path,
+                                proxies=self.proxies, data=json.dumps(save))
+        if "true" in response.text:
+            os.remove(self.lock_file)
+            response = requests.put('%s/v1/session/destroy/%s' %
+                                    (self.consul_addr, session),
+                                    headers=self.consul_headers,
+                                    verify=self.consul_cert_path,
+                                    proxies=self.proxies)
+            if response.status_code == 200:
+                return True, "Unlocked with lockfile: %s" % self.lock_file
+            else:
+                return False, "Unable to completely destroy %s" % self.lock_file
+
+        else:
+            return False, "Unable to release lock %s" % self.lock_file
 
     def list(self, path):
         """Given a path this will list the next available branches in the path,
@@ -307,24 +402,24 @@ class Tendril(object):
 
         return success, response
 
-    def read(self, full_path):
+    def read(self, path):
         """Given a path this will read the key/value pairs from vault and
         present them to the user in the desired format. If the path does not
         have a version, the current version will be pulled from vault and used.
         If there is no current version, a list of available options will be
         provided instead of the key/value pairs."""
-        full_path = full_path.lstrip('/').rstrip('/')
+        path = path.lstrip('/').rstrip('/')
         return_text = ''
         try:
-            version = full_path.split('/')[-1]
-            path = '/'.join(full_path.split('/')[:-1])
+            version = path.split('/')[-1]
+            path = '/'.join(path.split('/')[:-1])
             int(version)
             (success, response) = self._read_data('%s/%s' % (path, version))
         except ValueError:
-            (success, response) = self._read_data('%s/__metadata' % full_path)
+            (success, response) = self._read_data('%s__metadata' % path)
             if 'current' in response and response['current'] is not None:
                 version = response['current']
-                (success, response) = self._read_data('%s/%s' % (full_path, version))
+                (success, response) = self._read_data('%s/%s' % (path, version))
             else:
                 if isinstance(response, dict):
                     if 'versions' in response:
@@ -344,13 +439,13 @@ class Tendril(object):
             return True, return_text
         return success, response
 
-    def promote(self, full_path):
+    def promote(self, path):
         """This will promote a given path to mark it as 'current'. The path must
         end with a version number or an errro will be returned."""
-        full_path = full_path.lstrip('/').rstrip('/')
+        path = path.lstrip('/').rstrip('/')
 
-        version = full_path.split('/')[-1]
-        path = '/'.join(full_path.split('/')[:-1])
+        version = path.split('/')[-1]
+        path = '/'.join(path.split('/')[:-1])
         (success, metadata) = self._read_data('%s/__metadata' % path)
         if success:
             if int(version) in metadata['versions']:
@@ -377,3 +472,15 @@ class Tendril(object):
                 return False, "%s is not in %s" % (version, metadata['versions'])
         else:
             return False, "Error: %s" % metadata
+
+    def lock(self, path):
+        self.lock_file = ".%s.lock" % path
+        self.lock_file = self.lock_file.replace('/', '.')
+        success, message = self._acquire_lock(path)
+        return success, message
+
+    def unlock(self, path):
+        self.lock_file = ".%s.lock" % path
+        self.lock_file = self.lock_file.replace('/', '.')
+        success, message = self._release_lock(path)
+        return success, message

@@ -21,7 +21,12 @@ def main():
 
     configure_logging(level=config['log_level'])
 
-    tendril = Tendril(vault_token=config['vault_token'],
+    tendril = Tendril(
+                      consul_token=config['consul_token'],
+                      consul_addr=config['consul_addr'],
+                      consul_prefix=config['consul_prefix'],
+                      consul_cert_path=config['consul_cert_path'],
+                      vault_token=config['vault_token'],
                       vault_addr=config['vault_addr'],
                       vault_prefix=config['vault_prefix'],
                       vault_cert_path=config['vault_cert_path'],
