@@ -86,7 +86,7 @@ class Tendril(object):
                  vault_token=None,
                  vault_addr='http://localhost:8200',
                  vault_prefix='config',
-                 vault_cert_path=None,
+                 vault_cert_path='',
                  use_socks=False,
                  socks_addr=None,
                  output_format='json',
@@ -120,6 +120,7 @@ class Tendril(object):
         self.use_editor = True
         if use_editor == 'False':
             self.use_editor = False
+
     def _write_data(self, path, data):
         try:
             response = requests.post(
@@ -180,6 +181,8 @@ class Tendril(object):
         return False, "Unknown error"
 
     def _acquire_lock(self, path):
+        self.lock_file = ".%s.lock" % path
+        self.lock_file = self.lock_file.replace('/', '.')
         if not os.path.isfile(self.lock_file):
             # Create a session
             data = {"Name":"consul-lock", "TTL":"3600s"}
@@ -232,6 +235,8 @@ class Tendril(object):
                 return False, "Unable to renew %s" % self.lock_file
 
     def _release_lock(self, path):
+        self.lock_file = ".%s.lock" % path
+        self.lock_file = self.lock_file.replace('/', '.')
         if not os.path.isfile(self.lock_file):
             return (False, "Lock file %s doesn't exist." % self.lock_file)
         with open(self.lock_file, 'r') as f:
@@ -474,13 +479,9 @@ class Tendril(object):
             return False, "Error: %s" % metadata
 
     def lock(self, path):
-        self.lock_file = ".%s.lock" % path
-        self.lock_file = self.lock_file.replace('/', '.')
         success, message = self._acquire_lock(path)
         return success, message
 
     def unlock(self, path):
-        self.lock_file = ".%s.lock" % path
-        self.lock_file = self.lock_file.replace('/', '.')
         success, message = self._release_lock(path)
         return success, message

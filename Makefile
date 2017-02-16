@@ -10,9 +10,13 @@ test:
 	PYTHONPATH=modules nosetests -v -s tests
 
 test_primitives:
+	scripts/stop_vault.sh
+	scripts/stop_consul.sh
+	scripts/start_consul.sh
 	scripts/start_vault.sh
 	PYTHONPATH=modules nosetests -v -s tests/primitives
 	scripts/stop_vault.sh
+	scripts/stop_consul.sh
 
 pylint:
 	pylint tendril modules/vault_tendril

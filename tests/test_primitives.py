@@ -2,10 +2,11 @@ from nose.tools import with_setup, assert_raises
 import requests
 import requests_mock
 from vault_tendril.main import Tendril
-from configs_for_tests import VAULT_ADDR, VAULT_TOKEN
+from configs_for_tests import CONSUL_ADDR, CONSUL_TOKEN, VAULT_ADDR, VAULT_TOKEN
 import json
 
-HEADERS = {'X-Vault-Token': VAULT_TOKEN}
+CONSUL_HEADERS = {'X-Consul-Token': CONSUL_TOKEN}
+VAULT_HEADERS = {'X-Vault-Token': VAULT_TOKEN}
 
 def test_successful_write():
     with requests_mock.mock() as m:
@@ -16,7 +17,7 @@ def test_successful_write():
         success, message = t._write_data(path, {"one":"first","two":"second"})
         assert success
         assert message == None
-        r = requests.get('%s/v1/%s/%s' % (VAULT_ADDR, 'config', path), headers=HEADERS)
+        r = requests.get('%s/v1/%s/%s' % (VAULT_ADDR, 'config', path), headers=VAULT_HEADERS)
         assert r.status_code == 200
         data = r.json()
         assert 'data' in data
@@ -139,3 +140,23 @@ def test_bad_token_list():
         success, data = t._list_path(path)
         assert not success
         assert data == "Permission denied"
+
+def test_lock():
+    with requests_mock.mock() as m:
+        path = 'env/app/1'
+        m.put('%s/v1/session/create' % CONSUL_ADDR, text='{"ID": "4cc1e37d-53cc-0d61-3985-0e0d9eff457d"}', status_code=200)
+        m.put('%s/v1/session/renew/%s' % (CONSUL_ADDR, "4cc1e37d-53cc-0d61-3985-0e0d9eff457d"), text='[{"ID": "4cc1e37d-53cc-0d61-3985-0e0d9eff457d"}]', status_code=200)
+        m.put('%s/v1/kv/lock/%s?acquire=%s' % (CONSUL_ADDR, path, '4cc1e37d-53cc-0d61-3985-0e0d9eff457d'), text="true", status_code=200)
+        m.put('%s/v1/kv/lock/%s?release=%s' % (CONSUL_ADDR, path, '4cc1e37d-53cc-0d61-3985-0e0d9eff457d'), text="true", status_code=200)
+        m.put('%s/v1/session/destroy/%s' % (CONSUL_ADDR, '4cc1e37d-53cc-0d61-3985-0e0d9eff457d'), text='{"ID": "4cc1e37d-53cc-0d61-3985-0e0d9eff457d"}', status_code=200)
+        t = Tendril()
+        success, data = t._acquire_lock(path)
+        assert success
+	lock_path = ".%s.lock" % path.replace('/', '.')
+        assert data == "Locked with lockfile: %s" % lock_path
+        success, data = t._acquire_lock(path)
+        assert success
+        assert data == "Renewed lock with lockfile: %s" % lock_path
+        success, data = t._release_lock(path)
+        assert success
+        assert data == "Unlocked with lockfile: %s" % lock_path

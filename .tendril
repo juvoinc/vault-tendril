@@ -3,5 +3,6 @@ debug_level = INFO
 use_socks = no
 vault_addr = http://localhost:8200
 # This vault_token is a throw-away and should not be re-used
+consul_token = 2836814c-fb96-7c69-83fc-2ede967e697a
 vault_token = 2836814c-fb96-7c69-83fc-2ede967e697a
 output_format = export

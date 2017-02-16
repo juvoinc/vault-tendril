@@ -123,3 +123,17 @@ def test_bad_token_list():
     success, data = t._list_path('env')
     assert not success
     assert data == "Permission denied"
+@with_setup(setup, teardown)
+def test_lock():
+    path = 'env/app/1'
+    t = Tendril()
+    success, data = t._acquire_lock(path)
+    assert success
+    lock_path = ".%s.lock" % path.replace('/', '.')
+    assert data == "Locked with lockfile: %s" % lock_path
+    success, data = t._acquire_lock(path)
+    assert success
+    assert data == "Renewed lock with lockfile: %s" % lock_path
+    success, data = t._release_lock(path)
+    assert success
+    assert data == "Unlocked with lockfile: %s" % lock_path
