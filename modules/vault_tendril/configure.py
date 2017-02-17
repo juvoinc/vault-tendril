@@ -21,7 +21,7 @@ def load_arguments():
     parser.add_argument('action', choices=ACTIONS)
     parser.add_argument('path', nargs='?', default='')
     parser.add_argument('--account', '-a', default=os.getenv('TENDRIL_ACCOUNT', DEFAULT_CONF_SECTION_NAME))
-    parser.add_argument('--format', choices=['export', 'json', 'yaml'], dest='output_format')
+    parser.add_argument('--format', choices=['export', 'json', 'yaml', 'raw'], dest='format')
     parser.add_argument('--force', action='store_true', default=False)
     parser.add_argument('--no-edit', action='store_false', default=True, dest='use_editor')
     return parser.parse_args()

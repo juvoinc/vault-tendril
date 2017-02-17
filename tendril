@@ -32,7 +32,7 @@ def main():
                       vault_cert_path=config['vault_cert_path'],
                       use_socks=config['use_socks'],
                       socks_addr=config['socks_addr'],
-                      output_format=config['output_format'],
+                      format=config['format'],
                       force=config['force'],
                       use_editor=config['use_editor']
                      )

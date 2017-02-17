@@ -89,7 +89,7 @@ class Tendril(object):
                  vault_cert_path='',
                  use_socks=False,
                  socks_addr=None,
-                 output_format='json',
+                 format='json',
                  force=False,
                  use_editor=True
                 ):
@@ -110,7 +110,7 @@ class Tendril(object):
         else:
             self.proxies = None
         self.use_socks = use_socks
-        self.output_format = output_format
+        self.format = format
         self.consul_headers = {'X-Consul-Token': consul_token}
 
         self.vault_headers = {'X-Vault-Token': vault_token}
@@ -318,7 +318,7 @@ class Tendril(object):
         if '__metadata' in response:
             (success, metadata) = self._read_data('%s/__metadata' % (path))
             if success:
-                if self.output_format == 'json':
+                if self.format == 'json':
                     return_text = json.dumps(metadata['history'], indent=2)
                 else:
                     max_width = 0
@@ -434,12 +434,12 @@ class Tendril(object):
                         success = False
                         response = return_text
         if success:
-            if self.output_format == 'export':
+            if self.format == 'export':
                 for key in sorted(response):
                     return_text += "export %s=\"%s\"\n" % (key, response[key])
-            elif self.output_format == 'json':
+            elif self.format == 'json':
                 return_text = json.dumps(response, indent=2)
-            elif self.output_format == 'yaml':
+            elif self.format == 'yaml':
                 return_text = "%s\n%s" % ('---', yaml.safe_dump(response, default_flow_style=False))
             return True, return_text
         return success, response

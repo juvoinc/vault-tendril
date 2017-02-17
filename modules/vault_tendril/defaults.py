@@ -18,7 +18,7 @@ CONFIG_DEFAULTS = {
     'vault_prefix' : 'config',
     'vault_cert_path' : '',
     'socks_addr' : '',
-    'output_format' : 'export',
+    'format' : 'export',
     'version': ''
     }
 
