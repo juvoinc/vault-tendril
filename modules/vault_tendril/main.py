@@ -1,7 +1,6 @@
 """The tendril class"""
 
 #from __future__ import print_function
-import logging
 import getpass
 import os
 import sys
@@ -12,9 +11,9 @@ import hashlib
 import tempfile
 from subprocess import call
 from time import sleep
+import base64
 import yaml
 import requests
-import base64
 
 def valid_path(path):
     """Makes a best guess at detecting whether a path is okay to try to write to"""
@@ -79,7 +78,7 @@ class Tendril(object):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-
+    # pylint: disable=too-many-branches
     def __init__(self,
                  consul_token=None,
                  consul_addr='http://localhost:8500',
@@ -91,7 +90,7 @@ class Tendril(object):
                  vault_cert_path='',
                  use_socks=False,
                  socks_addr=None,
-                 format='json',
+                 output_format='json',
                  force=False,
                  use_editor=True
                 ):
@@ -112,7 +111,7 @@ class Tendril(object):
         else:
             self.proxies = None
         self.use_socks = use_socks
-        self.format = format
+        self.output_format = output_format
         self.consul_headers = {'X-Consul-Token': consul_token}
 
         self.vault_headers = {'X-Vault-Token': vault_token}
@@ -122,12 +121,14 @@ class Tendril(object):
         self.use_editor = True
         if use_editor == 'False':
             self.use_editor = False
+        self.lock_file = None
 
     def _write_data(self, path, data):
         try:
             response = requests.post(
                 '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path),
-                json=data, headers=self.vault_headers, verify=self.vault_cert_path, proxies=self.proxies)
+                json=data, headers=self.vault_headers,
+                verify=self.vault_cert_path, proxies=self.proxies)
         except requests.exceptions.ConnectionError, error:
             return False, str(error)
         if response.status_code == 204:
@@ -138,22 +139,21 @@ class Tendril(object):
 
     def _read_data(self, path):
         try:
-            url = '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path)
             response = requests.get(
                 '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path),
                 headers=self.vault_headers, verify=self.vault_cert_path, proxies=self.proxies)
+            if response.status_code == 200:
+                if 'data' in response.json():
+                    return True, response.json()['data']
+                else:
+                    return False, "No data returned"
+            elif response.status_code == 404:
+                return False, "No data found at %s" % path
+            elif response.status_code == 400:
+                print response.text
+                return False, "Permission denied"
         except requests.exceptions.ConnectionError, error:
             return False, str(error)
-        if response.status_code == 200:
-            if 'data' in response.json():
-                return True, response.json()['data']
-            else:
-                return False, "No data returned"
-        elif response.status_code == 404:
-            return False, "No data found at %s" % path
-        elif response.status_code == 400:
-            print response.text
-            return False, "Permission denied"
         return False, "Unknown error"
 
     def _list_path(self, path):
@@ -207,8 +207,8 @@ class Tendril(object):
                                         verify=self.consul_cert_path,
                                         proxies=self.proxies, data=json.dumps(save))
                 if "true" in response.text:
-                    with open(self.lock_file, 'w') as f:
-                        f.write(session)
+                    with open(self.lock_file, 'w') as lockfile:
+                        lockfile.write(session)
                     return True, "Locked with lockfile: %s" % self.lock_file
                 else:
                     print "Destroying session of %s" % session
@@ -221,8 +221,8 @@ class Tendril(object):
             else:
                 return False, "Unable to create a session"
         else:
-            with open(self.lock_file, 'r') as f:
-                session = f.read()
+            with open(self.lock_file, 'r') as lockfile:
+                session = lockfile.read()
             response = requests.put('%s/v1/session/renew/%s' % (self.consul_addr, session),
                                     headers=self.consul_headers,
                                     verify=self.consul_cert_path,
@@ -241,8 +241,8 @@ class Tendril(object):
         self.lock_file = self.lock_file.replace('/', '.')
         if not os.path.isfile(self.lock_file):
             return (False, "Lock file %s doesn't exist." % self.lock_file)
-        with open(self.lock_file, 'r') as f:
-            session = f.read()
+        with open(self.lock_file, 'r') as lockfile:
+            session = lockfile.read()
         save = {
             "user":getpass.getuser(),
             "action":"released",
@@ -320,7 +320,7 @@ class Tendril(object):
         if '__metadata' in response:
             (success, metadata) = self._read_data('%s/__metadata' % (path))
             if success:
-                if self.format == 'json':
+                if self.output_format == 'json':
                     return_text = json.dumps(metadata['history'], indent=2)
                 else:
                     max_width = 0
@@ -351,8 +351,6 @@ class Tendril(object):
             next_version = 1
             metadata = None
         return metadata, next_version
-
-
 
     def write(self, path, data=None):
         """Given a path this will write the raw_data (either passed in or from
@@ -436,12 +434,12 @@ class Tendril(object):
                         success = False
                         response = return_text
         if success:
-            if self.format == 'export':
+            if self.output_format == 'export':
                 for key in sorted(response):
                     return_text += "export %s=\"%s\"\n" % (key, response[key])
-            elif self.format == 'json':
+            elif self.output_format == 'json':
                 return_text = json.dumps(response, indent=2)
-            elif self.format == 'yaml':
+            elif self.output_format == 'yaml':
                 return_text = "%s\n%s" % ('---', yaml.safe_dump(response, default_flow_style=False))
             return True, return_text
         return success, response
@@ -481,42 +479,53 @@ class Tendril(object):
             return False, "Error: %s" % metadata
 
     def lock(self, path):
+        """This uses a consul lockfile to acquire a global lock."""
         success, message = self._acquire_lock(path)
         return success, message
 
     def unlock(self, path):
+        """This unlocks a global consul lockfile."""
         success, message = self._release_lock(path)
         return success, message
 
     def readfiles(self, path, destination='.'):
+        # pylint: disable=no-member
+
+        """This reads files stored in vault and saves them to a specified
+        destination."""
+        if not os.path.isdir(destination):
+            return (False, "%s is not a directory." % destination)
         path = path.rstrip('/')
         (success, data) = self._read_data(path)
         if not success:
-            return (False, "No data returned: %s" % data)
-        for file, text in data.iteritems():
+            return (False, "No data returned: %s" % str(data))
+        if not isinstance(data, dict):
+            return (False, "No data returned: %s" % str(data))
+        for filename, text in data.iteritems():
             try:
                 text = base64.b64decode(text)
-                print "Writing to %s/%s" % (destination, file)
-                with open("%s/%s" % (destination, file), 'wb') as f:
-                    f.write(text)
+                print "Writing to %s/%s" % (destination, filename)
+                with open("%s/%s" % (destination, filename), 'wb') as outputfile:
+                    outputfile.write(text)
             except TypeError:
                 return (False, "This is not a valid path for files")
         return (True, "Loaded %s file(s) from vault and saved to %s" % (len(data), destination))
 
-    def writefiles(self, path, files=[]):
+    def writefiles(self, path, files=None):
+        """Write specified files to vault. Base64 encoding is used."""
         path = path.rstrip('/')
-        okay = True
-        for file in files:
-            if not os.path.exists(file):
-                return (False, "One or more files does not exist.")
-            filename = file.split('/')[-1]
+        if isinstance(files, list):
+            for filename in files:
+                if not os.path.exists(filename):
+                    return (False, "One or more files does not exist.")
+                filename = filename.split('/')[-1]
 
         data = {}
-        for file in files:
-            with open(file, 'rb') as f:
-                text = f.read()
+        for filename in files:
+            with open(filename, 'rb') as reader:
+                text = reader.read()
             text = base64.b64encode(text)
-            filename = file.split('/')[-1]
+            filename = filename.split('/')[-1]
             if filename in data:
                 return (False, "Duplicate filename: %s" % filename)
             data[filename] = text
@@ -524,6 +533,6 @@ class Tendril(object):
         # return (False, "Short circuit")
         (success, message) = self._write_data(path, data)
         if success:
-                return (True, "Saved %s file(s) to vault/%s" % (len(data), path))
+            return (True, "Saved %s file(s) to vault/%s" % (len(data), path))
         else:
-                return (False, "Did not save files to vault/%s : %s " % (path, message))
+            return (False, "Did not save files to vault/%s : %s " % (path, message))

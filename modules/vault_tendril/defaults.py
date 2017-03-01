@@ -34,5 +34,5 @@ ACTIONS = [
     'writefiles'
     ]
 
-for index, file in enumerate(DEFAULT_CONF_FILES):
-    DEFAULT_CONF_FILES[index] = os.path.expanduser(file)
+for index, filename in enumerate(DEFAULT_CONF_FILES):
+    DEFAULT_CONF_FILES[index] = os.path.expanduser(filename)

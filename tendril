@@ -22,28 +22,30 @@ def main():
     configure_logging(level=config['log_level'])
 
     tendril = Tendril(
-                      consul_token=config['consul_token'],
-                      consul_addr=config['consul_addr'],
-                      consul_prefix=config['consul_prefix'],
-                      consul_cert_path=config['consul_cert_path'],
-                      vault_token=config['vault_token'],
-                      vault_addr=config['vault_addr'],
-                      vault_prefix=config['vault_prefix'],
-                      vault_cert_path=config['vault_cert_path'],
-                      use_socks=config['use_socks'],
-                      socks_addr=config['socks_addr'],
-                      format=config['format'],
-                      force=config['force'],
-                      use_editor=config['use_editor']
-                     )
+        consul_token=config['consul_token'],
+        consul_addr=config['consul_addr'],
+        consul_prefix=config['consul_prefix'],
+        consul_cert_path=config['consul_cert_path'],
+        vault_token=config['vault_token'],
+        vault_addr=config['vault_addr'],
+        vault_prefix=config['vault_prefix'],
+        vault_cert_path=config['vault_cert_path'],
+        use_socks=config['use_socks'],
+        socks_addr=config['socks_addr'],
+        output_format=config['format'],
+        force=config['force'],
+        use_editor=config['use_editor']
+    )
 
     function_name = config['action'].replace('-', '_')
 
     if hasattr(tendril, function_name):
         if function_name == 'readfiles':
-            (success, message) = getattr(tendril, function_name)(config['path'], destination=config['destination'])
+            (success, message) = getattr(tendril, function_name)(
+                config['path'], destination=config['destination'])
         elif function_name == 'writefiles':
-            (success, message) = getattr(tendril, function_name)(config['path'], files=config['files'].split(','))
+            (success, message) = getattr(tendril, function_name)(
+                config['path'], files=config['files'].split(','))
         else:
             (success, message) = getattr(tendril, function_name)(config['path'])
         if message is not None:
