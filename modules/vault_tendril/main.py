@@ -14,6 +14,8 @@ from subprocess import call
 from time import sleep
 import yaml
 import requests
+import base64
+
 def valid_path(path):
     """Makes a best guess at detecting whether a path is okay to try to write to"""
     last = path.split('/')[-1]
@@ -421,7 +423,7 @@ class Tendril(object):
             int(version)
             (success, response) = self._read_data('%s/%s' % (path, version))
         except ValueError:
-            (success, response) = self._read_data('%s__metadata' % path)
+            (success, response) = self._read_data('%s/%s/__metadata' % (path, version))
             if 'current' in response and response['current'] is not None:
                 version = response['current']
                 (success, response) = self._read_data('%s/%s' % (path, version))
@@ -485,3 +487,43 @@ class Tendril(object):
     def unlock(self, path):
         success, message = self._release_lock(path)
         return success, message
+
+    def readfiles(self, path, destination='.'):
+        path = path.rstrip('/')
+        (success, data) = self._read_data(path)
+        if not success:
+            return (False, "No data returned: %s" % data)
+        for file, text in data.iteritems():
+            try:
+                text = base64.b64decode(text)
+                print "Writing to %s/%s" % (destination, file)
+                with open("%s/%s" % (destination, file), 'wb') as f:
+                    f.write(text)
+            except TypeError:
+                return (False, "This is not a valid path for files")
+        return (True, "Loaded %s file(s) from vault and saved to %s" % (len(data), destination))
+
+    def writefiles(self, path, files=[]):
+        path = path.rstrip('/')
+        okay = True
+        for file in files:
+            if not os.path.exists(file):
+                return (False, "One or more files does not exist.")
+            filename = file.split('/')[-1]
+
+        data = {}
+        for file in files:
+            with open(file, 'rb') as f:
+                text = f.read()
+            text = base64.b64encode(text)
+            filename = file.split('/')[-1]
+            if filename in data:
+                return (False, "Duplicate filename: %s" % filename)
+            data[filename] = text
+        # print json.dumps(data, indent=2)
+        # return (False, "Short circuit")
+        (success, message) = self._write_data(path, data)
+        if success:
+                return (True, "Saved %s file(s) to vault/%s" % (len(data), path))
+        else:
+                return (False, "Did not save files to vault/%s : %s " % (path, message))

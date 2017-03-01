@@ -18,14 +18,27 @@ def load_arguments():
     parser.add_argument('--verbose', '-v', action='store_true', default=False,
                         help='This will send logs to STDERR')
     parser.add_argument('--conf', nargs='+', default=DEFAULT_CONF_FILES)
-    parser.add_argument('action', choices=ACTIONS)
-    parser.add_argument('path', nargs='?', default='')
     parser.add_argument('--account', '-a', default=os.getenv('TENDRIL_ACCOUNT', DEFAULT_CONF_SECTION_NAME))
-    parser.add_argument('--format', choices=['export', 'json', 'yaml', 'raw'], dest='format')
-    parser.add_argument('--force', action='store_true', default=False)
-    parser.add_argument('--no-edit', action='store_false', default=True, dest='use_editor')
+    
+    subparsers = parser.add_subparsers()
+    for action in ACTIONS:
+        subparser = subparsers.add_parser(action) 
+        subparser.set_defaults(action=action)
+        if action == 'list':
+            subparser.add_argument('path', nargs='?', default='')
+        else:
+            subparser.add_argument('path', default='')
+        if action == 'read':
+            subparser.add_argument('--format', choices=['export', 'json', 'yaml', 'raw'], dest='format')
+        if action == 'write':
+            subparser.add_argument('--force', action='store_true', default=False)
+            subparser.add_argument('--no-edit', action='store_false', default=True, dest='use_editor')
+            subparser.add_argument('files', nargs='+')
+        if action == 'readfiles':
+            subparser.add_argument('destination', nargs='?', default='.')
+        if action == 'writefiles':
+            subparser.add_argument('files', nargs='+')
     return parser.parse_args()
-
 
 def load_configs():
     """Load in configurations from one or more files"""
@@ -47,7 +60,10 @@ def set_defaults(args, config):
     for key in vars(args):
         value = getattr(args, key)
         if value is not None:
-            config[key] = str(value)
+            if type(value) is list:
+                config[key] = str(','.join(value))
+            else:
+                config[key] = str(value)
     return config
 
 

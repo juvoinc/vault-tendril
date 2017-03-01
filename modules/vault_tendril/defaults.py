@@ -4,7 +4,7 @@ import os
 
 DEFAULT_CONF_FILES = ['/etc/tendril.conf', '~/.tendril', './.tendril']
 
-DEFAULT_CONF_SECTION_NAME = 'default'
+DEFAULT_CONF_SECTION_NAME = 'main'
 
 CONFIG_DEFAULTS = {
     'force' : False,
@@ -29,7 +29,9 @@ ACTIONS = [
     'write',
     'promote',
     'lock',
-    'unlock'
+    'unlock',
+    'readfiles',
+    'writefiles'
     ]
 
 for index, file in enumerate(DEFAULT_CONF_FILES):

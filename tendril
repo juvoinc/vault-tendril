@@ -40,7 +40,12 @@ def main():
     function_name = config['action'].replace('-', '_')
 
     if hasattr(tendril, function_name):
-        (success, message) = getattr(tendril, function_name)(config['path'])
+        if function_name == 'readfiles':
+            (success, message) = getattr(tendril, function_name)(config['path'], destination=config['destination'])
+        elif function_name == 'writefiles':
+            (success, message) = getattr(tendril, function_name)(config['path'], files=config['files'].split(','))
+        else:
+            (success, message) = getattr(tendril, function_name)(config['path'])
         if message is not None:
             print message
         if not success:
