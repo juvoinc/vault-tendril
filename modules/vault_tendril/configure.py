@@ -37,7 +37,6 @@ def load_arguments():
                                    default=False)
             subparser.add_argument('--no-edit', action='store_false',
                                    default=True, dest='use_editor')
-            subparser.add_argument('files', nargs='+')
         if action == 'readfiles':
             subparser.add_argument('destination', nargs='?', default='.')
         if action == 'writefiles':
@@ -52,7 +51,15 @@ def load_configs():
     config.read(args.conf)
     if DEFAULT_CONF_SECTION_NAME not in config:
         config[DEFAULT_CONF_SECTION_NAME] = {}
-    (okay, problems) = check_config(config[args.account])
+    if args.account in config:
+        (okay, problems) = check_config(config[args.account])
+    else:
+        okay = False
+        accounts = []
+        for account in config:
+            accounts.append(account)
+        accounts.sort()
+        problems = '%s is not a valid account in your config files, valid accounts are: %s' % (args.account, ', '.join(accounts))
     if not okay:
         logging.critical("%s", problems)
         sys.exit(1)

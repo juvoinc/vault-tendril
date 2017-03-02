@@ -480,11 +480,13 @@ class Tendril(object):
 
     def lock(self, path):
         """This uses a consul lockfile to acquire a global lock."""
+        path = path.rstrip('/')
         success, message = self._acquire_lock(path)
         return success, message
 
     def unlock(self, path):
         """This unlocks a global consul lockfile."""
+        path = path.rstrip('/')
         success, message = self._release_lock(path)
         return success, message
 
@@ -493,6 +495,7 @@ class Tendril(object):
 
         """This reads files stored in vault and saves them to a specified
         destination."""
+        destination = destination.rstrip('/')
         if not os.path.isdir(destination):
             return (False, "%s is not a directory." % destination)
         path = path.rstrip('/')

@@ -1,4 +1,4 @@
-[main]
+[DEFAULT]
 debug_level = INFO
 use_socks = no
 vault_addr = http://localhost:8200

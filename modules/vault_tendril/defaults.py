@@ -4,7 +4,7 @@ import os
 
 DEFAULT_CONF_FILES = ['/etc/tendril.conf', '~/.tendril', './.tendril']
 
-DEFAULT_CONF_SECTION_NAME = 'main'
+DEFAULT_CONF_SECTION_NAME = 'DEFAULT'
 
 CONFIG_DEFAULTS = {
     'force' : False,
