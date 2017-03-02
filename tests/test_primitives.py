@@ -49,7 +49,7 @@ def test_bad_token_write():
     path = 'env/app/1'
     with requests_mock.mock() as m:
         path = 'env/app/1'
-        m.post('%s/v1/%s/%s' % (VAULT_ADDR, 'config', path), text=None, status_code=400)
+        m.post('%s/v1/%s/%s' % (VAULT_ADDR, 'config', path), text=None, status_code=403)
         t = Tendril(vault_token='00000000-0000-0000-0000-000000000000')
         success, message = t._write_data(path, {"one":"first","two":"second"})
         assert success == False
@@ -68,7 +68,7 @@ def test_bad_token_read():
     with requests_mock.mock() as m:
         path = 'env/app/1'
         m.post('%s/v1/%s/%s' % (VAULT_ADDR, 'config', path), text=None, status_code=204)
-        m.get('%s/v1/%s/%s' % (VAULT_ADDR, 'config', path), text=None, status_code=400)
+        m.get('%s/v1/%s/%s' % (VAULT_ADDR, 'config', path), text=None, status_code=403)
         path = 'env/app/1'
         t = Tendril(vault_token=VAULT_TOKEN)
         success, message = t._write_data(path, {"one":"first","two":"second"})
@@ -135,7 +135,7 @@ def test_missing_path_read():
 def test_bad_token_list():
     with requests_mock.mock() as m:
         path = 'env/app/1'
-        m.get('%s/v1/%s/%s?list=true' % (VAULT_ADDR, 'config', path), text=None, status_code=400)
+        m.get('%s/v1/%s/%s?list=true' % (VAULT_ADDR, 'config', path), text=None, status_code=403)
         t = Tendril()
         success, data = t._list_path(path)
         assert not success

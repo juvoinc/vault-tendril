@@ -134,27 +134,36 @@ class Tendril(object):
         if response.status_code == 204:
             return True, None
         elif response.status_code == 400:
+            return False, "Bad request"
+        elif response.status_code == 403:
             return False, "Permission denied"
         return False, "Unknown error"
 
     def _read_data(self, path):
+        status = True
+        message = None
         try:
             response = requests.get(
                 '%s/v1/%s/%s' % (self.vault_addr, self.vault_prefix, path),
                 headers=self.vault_headers, verify=self.vault_cert_path, proxies=self.proxies)
             if response.status_code == 200:
                 if 'data' in response.json():
-                    return True, response.json()['data']
+                    message = response.json()['data']
                 else:
-                    return False, "No data returned"
+                    status = False
+                    message = "No data returned"
             elif response.status_code == 404:
-                return False, "No data found at %s" % path
+                status = False
+                message = "No data found at %s" % path
             elif response.status_code == 400:
-                print response.text
-                return False, "Permission denied"
+                status = False
+                message = "Bad request"
+            elif response.status_code == 403:
+                status = False
+                message = "Permission denied"
+            return status, message
         except requests.exceptions.ConnectionError, error:
             return False, str(error)
-        return False, "Unknown error"
 
     def _list_path(self, path):
 
@@ -179,6 +188,8 @@ class Tendril(object):
                 return False, 'No keys found'
             return False, "No keys found at %s" % path
         elif response.status_code == 400:
+            return False, "Bad request"
+        elif response.status_code == 403:
             return False, "Permission denied"
         return False, "Unknown error"
 
