@@ -59,7 +59,8 @@ def load_configs():
         for account in config:
             accounts.append(account)
         accounts.sort()
-        problems = '%s is not a valid account in your config files, valid accounts are: %s' % (args.account, ', '.join(accounts))
+        problems = '%s is not a valid account in your config files, valid accounts are: %s' % (
+            args.account, ', '.join(accounts))
     if not okay:
         logging.critical("%s", problems)
         sys.exit(1)
