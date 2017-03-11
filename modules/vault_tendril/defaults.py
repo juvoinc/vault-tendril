@@ -12,6 +12,7 @@ CONFIG_DEFAULTS = {
     'use_editor' : True,
     'use_socks' : False,
     'consul_addr' : 'http://localhost:8500',
+    'consul_token' : '',
     'consul_prefix' : 'lock',
     'consul_cert_path' : '',
     'vault_addr' : 'http://localhost:8200',
