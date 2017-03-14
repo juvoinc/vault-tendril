@@ -6,7 +6,7 @@ Tendril is a command line utility that facilitates the storage and retrieval
 of versioned configuration files. Under the hood it uses Hashicorp's
 [Vault](https://vaultproject.io).
 
-At Juvo, we use it to store the configurations for all of our applications,
+At [Juvo](https://juvo.com), we use it to store the configurations for all of our applications,
 as well as storing [Terraform](https://terraform.io) state files and secret
 files.
 
@@ -159,19 +159,49 @@ $ tendril --format yaml read foo/baz # Note that version 2 has been promoted
 key: value3
 ```
 
+### lock and unlock
+
+tendril can use consul's atomic locking abilities to ensure that only one person
+is changing configurations at any given time.
+
+```
+$ tendril lock foo/baz
+$ tendril write foo/baz
+$ tendril promote foo/baz/12
+$ tendril unlock foo/baz
+```
+
+### writefiles
+
+It is possible to store raw files with tendril. We use this to store terraform
+state files and secrets.
+
+```
+$ tendril writefiles foo/bar file.txt file2.txt
+Saved 2 file(s) to vault: foo/bar
+```
+
+### readfiles
+
+Read the files written with writefiles back out.
+
+```
+$ tendril readfiles foo/bar .
+Writing to ./files2.txt
+writing to ./files.txt
+```
+
 ## Configuration
 
 Tendril is configured via [INI files](https://en.wikipedia.org/wiki/INI_file).
 Intelligent defaults have been set, but at the very least you will need to add
-your vault token for production use. For demonstration and testing purposes, no
-configuration file needs to be created.
+your vault token for production use. For demonstration and testing purposes, a
+working `.tendril` file is provided.
 
 By default, tendril reads configuration files from `/etc/tendril.conf`,
 `~/.tendril`, and `./.tendril`, with the last taking highest precedence. If
 multiple files exist, they will all be loaded. If you specify your own
 configuration file, only the specified file will be read.
-
-There is an example configuration file in `.tendril`.
 
 ## testing
 

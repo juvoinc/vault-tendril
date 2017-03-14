@@ -547,6 +547,6 @@ class Tendril(object):
         # return (False, "Short circuit")
         (success, message) = self._write_data(path, data)
         if success:
-            return (True, "Saved %s file(s) to vault/%s" % (len(data), path))
+            return (True, "Saved %s file(s) to vault: %s" % (len(data), path))
         else:
-            return (False, "Did not save files to vault/%s : %s " % (path, message))
+            return (False, "Did not save files to vault: %s : %s " % (path, message))
