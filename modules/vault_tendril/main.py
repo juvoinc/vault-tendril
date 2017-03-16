@@ -428,11 +428,11 @@ class Tendril(object):
         return_text = ''
         try:
             version = path.split('/')[-1]
-            path = '/'.join(path.split('/')[:-1])
+            new_path = '/'.join(path.split('/')[:-1])
             int(version)
-            (success, response) = self._read_data('%s/%s' % (path, version))
+            (success, response) = self._read_data('%s/%s' % (new_path, version))
         except ValueError:
-            (success, response) = self._read_data('%s/%s/__metadata' % (path, version))
+            (success, response) = self._read_data('%s/__metadata' % (path))
             if 'current' in response and response['current'] is not None:
                 version = response['current']
                 (success, response) = self._read_data('%s/%s' % (path, version))
