@@ -12,11 +12,17 @@ setup(name='vault_tendril',
       packages=['vault_tendril'],
       scripts=['tendril'],
       install_requires=[
-          'configparser>=3.5.0',
-          'pyyaml>=3.12',
-          'requests>=2.12.4',
-          'PySocks>=1.5.7'
+        'appdirs>=1.4.3',
+        'configparser>=3.5.0',
+        'packaging>=16.8',
+        'pyparsing>=2.2.0',
+        'PySocks>=1.6.6',
+        'PyYAML>=3.12',
+        'requests>=2.13.0',
+        'six>=1.10.0
       ],
       test_suite='nose.collector',
       tests_require=['nose'],
      )
+
+
