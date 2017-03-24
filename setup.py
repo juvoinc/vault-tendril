@@ -19,7 +19,7 @@ setup(name='vault_tendril',
         'PySocks>=1.6.6',
         'PyYAML>=3.12',
         'requests>=2.13.0',
-        'six>=1.10.0
+        'six>=1.10.0'
       ],
       test_suite='nose.collector',
       tests_require=['nose'],
