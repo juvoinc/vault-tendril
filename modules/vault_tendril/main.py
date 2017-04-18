@@ -188,9 +188,9 @@ class Tendril(object):
                 return False, 'No keys found'
             return False, "No keys found at %s" % path
         elif response.status_code == 400:
-            return False, "Bad request"
+            return False, "Bad request: Make sure your vault token is correct"
         elif response.status_code == 403:
-            return False, "Permission denied"
+            return False, "Permission denied: Make sure your vault token is correct"
         return False, "Unknown error"
 
     def _acquire_lock(self, path):
@@ -288,7 +288,7 @@ class Tendril(object):
         path = path.lstrip('/').rstrip('/')
         (success, response) = self._list_path(path)
         if not success:
-            return False, "No metadata found"
+            return False, response
         return_text = ''
         if '__metadata' in response:
             (success, metadata) = self._read_data('%s/__metadata' % (path))
